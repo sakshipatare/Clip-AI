@@ -29,5 +29,6 @@ export const getClips = (projectId) =>
   api.get('/clips', { params: { projectId } });
 export const updateClipStatus = (clipId, status) =>
   api.put(`/clips/${clipId}/status`, { status });
+export const deleteClip = (clipId) => api.delete(`/clips/${clipId}`);
 
 export default api;

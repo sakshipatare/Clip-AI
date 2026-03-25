@@ -27,4 +27,19 @@ function generateUploadSignature() {
   };
 }
 
-module.exports = { cloudinary, generateUploadSignature };
+/**
+ * Delete an asset from Cloudinary.
+ * @param {string} publicId - The public ID of the asset.
+ * @param {string} resourceType - The type of resource ('video', 'image', 'raw').
+ */
+async function deleteFromCloudinary(publicId, resourceType = 'video') {
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    return result;
+  } catch (err) {
+    console.error('Cloudinary delete error:', err);
+    throw err;
+  }
+}
+
+module.exports = { cloudinary, generateUploadSignature, deleteFromCloudinary };

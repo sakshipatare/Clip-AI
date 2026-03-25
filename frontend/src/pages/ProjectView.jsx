@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getProject, getClips, updateClipStatus } from '../services/api';
+import { getProject, getClips, updateClipStatus, deleteClip } from '../services/api';
 
 function ScoreBar({ label, value }) {
   return (
@@ -51,6 +51,14 @@ export default function ProjectView() {
     try {
       const { data } = await updateClipStatus(clipId, status);
       setClips((prev) => prev.map((c) => (c._id === clipId ? data : c)));
+    } catch {}
+  };
+
+  const handleDeleteClip = async (clipId) => {
+    if (!window.confirm('Are you sure you want to delete this clip?')) return;
+    try {
+      await deleteClip(clipId);
+      setClips((prev) => prev.filter((c) => c._id !== clipId));
     } catch {}
   };
 
@@ -206,7 +214,7 @@ export default function ProjectView() {
                       ✓ Approve
                     </button>
                     <button
-                      onClick={() => handleStatusChange(clip._id, 'rejected')}
+                      onClick={() => handleDeleteClip(clip._id)}
                       className="flex-1 py-2 rounded-lg text-sm font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all cursor-pointer"
                     >
                       ✕ Reject
