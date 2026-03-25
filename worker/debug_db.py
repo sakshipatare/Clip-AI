@@ -29,6 +29,10 @@ def debug():
     # Check transcripts
     t = db.transcripts.find_one({'projectId': p['_id']})
     print(f"Transcript exists: {t is not None}")
+    if t and 'words' in t:
+        print("Sample words from transcript:")
+        for w in t['words'][:20]:
+            print(f"  {w}")
 
 if __name__ == '__main__':
     debug()

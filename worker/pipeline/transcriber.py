@@ -47,15 +47,42 @@ def transcribe(audio_path: str) -> dict:
     # Process OpenAI's response format (Transcription object or dict)
     result = {
         "text": getattr(response, "text", ""),
-        "words": []
+        "words": [],
+        "segments": []
     }
     
+    # Extract segments list safely
+    segments_data = []
+    if hasattr(response, 'segments'):
+        segments_data = response.segments
+    elif isinstance(response, dict) and 'segments' in response:
+        segments_data = response['segments']
+        
+    if segments_data:
+        for s in segments_data:
+            if hasattr(s, 'text'):
+                result["segments"].append({
+                    "text": s.text,
+                    "start": s.start,
+                    "end": s.end
+                })
+            else:
+                result["segments"].append({
+                    "text": s.get('text', ''),
+                    "start": s.get('start', 0.0),
+                    "end": s.get('end', 0.0)
+                })
+
     # Extract words list safely from response object or dict
     words_data = []
     if hasattr(response, 'words'):
         words_data = response.words
     elif isinstance(response, dict) and 'words' in response:
         words_data = response['words']
+    
+    # Ensure words_data is iterable
+    if not words_data:
+        words_data = []
     
     if words_data:
         for w in words_data:

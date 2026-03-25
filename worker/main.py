@@ -107,12 +107,14 @@ def process_project(project):
         transcript_data = transcribe(audio_file)
         full_text = transcript_data["text"]
         words = transcript_data["words"]
+        segments = transcript_data.get("segments", [])
         
         # Save transcript to DB
         transcripts_col.insert_one({
             "projectId": project_id,
             "fullText": full_text,
             "words": words,
+            "segments": segments,
             "createdAt": int(time.time()),
             "updatedAt": int(time.time())
         })
@@ -189,20 +191,45 @@ def process_project(project):
                 
                 # --- Sentence-Completion Guard ---
                 # Ensure the clip ends at a sentence boundary (., !, ?)
-                # Scan forward up to 10 words to find the next punctuation
-                scan_limit = min(end_idx + 10, len(words))
                 found_boundary = False
-                for s_idx in range(end_idx, scan_limit):
-                    word_val = words[s_idx].get('word', '')
-                    if any(p in word_val for p in ('.', '!', '?')):
-                        c_end = words[s_idx]['end']
-                        end_idx = s_idx # update for clip_words filtering
-                        found_boundary = True
-                        print(f"🎯 Sentence-completion guard: Extended clip to sentence end at {c_end:.2f}s ('{word_val}')")
-                        break
+                if end_idx != -1:
+                    # Scan current, then forward (up to 15), then backward (up to 5) for punctuation
+                    search_indices = [end_idx]
+                    search_indices.extend([end_idx + i for i in range(1, 16) if end_idx + i < len(words)])
+                    search_indices.extend([end_idx - i for i in range(1, 6) if end_idx - i >= 0])
+                    
+                    # Pre-calculate segment ends that have punctuation for faster lookup
+                    segment_ends = {round(s['end'], 2) for s in segments if any(p in s['text'] for p in ('.', '!', '?'))}
+
+                    for s_idx in search_indices:
+                        word_val = words[s_idx].get('word', '')
+                        word_end = round(words[s_idx]['end'], 2)
+                        
+                        # Boundary signals:
+                        # 1. Explicit punctuation in the word
+                        has_punc = any(p in word_val for p in ('.', '!', '?'))
+                        # 2. Word end aligns with a punctuated segment end
+                        is_seg_end = word_end in segment_ends
+                        # 3. Next word starts with a capital letter (start of new sentence)
+                        next_starts_capital = False
+                        if s_idx + 1 < len(words):
+                            nw = words[s_idx + 1].get('word', '')
+                            if nw and nw[0].isupper() and s_idx > 0:
+                                next_starts_capital = True
+
+                        if has_punc or is_seg_end or next_starts_capital:
+                            c_end = words[s_idx]['end']
+                            end_idx = s_idx # update for clip_words filtering
+                            found_boundary = True
+                            trigger = "punctuation" if has_punc else ("segment end" if is_seg_end else "next word capitalization")
+                            print(f"🎯 Sentence-completion guard: Adjusted clip via {trigger} at {c_end:.2f}s ('{word_val}')")
+                            break
                 
                 if not found_boundary:
-                    print(f"⚠️ Sentence-completion guard: No punctuation found within 10 words of end_text.")
+                    print(f"⚠️ Sentence-completion guard: No punctuation or capital signal found near end_text.")
+                    if end_idx != -1:
+                        nearby_words = [words[i].get('word', '') for i in range(max(0, end_idx-2), min(len(words), end_idx+5))]
+                        print(f"🔍 Debug Info: Nearby words around end_idx {end_idx}: {nearby_words}")
 
                 if c_end - c_start > clip_duration + 15:
                     print(f"📏 Clip too long ({c_end - c_start:.2f}s), truncating to {clip_duration}s.")
@@ -211,14 +238,24 @@ def process_project(project):
                 
                 print(f"📍 Clip window determined: {c_start:.2f}s to {c_end:.2f}s")
                     
-                clip_words = [w for w in words if w['start'] >= c_start and w['end'] <= c_end]
+                # Filter words that fall within the clip window (with a tiny 0.1s buffer)
+                clip_words = [w for w in words if w['start'] >= (c_start - 0.1) and w['end'] <= (c_end + 0.1)]
+                
+                # Shift timestamps to be relative to the clip's start (0.0s)
+                offset_words = []
+                for w in clip_words:
+                    offset_words.append({
+                        'word': w['word'],
+                        'start': max(0.0, w['start'] - c_start),
+                        'end': max(0.0, w['end'] - c_start)
+                    })
                 
                 # Video operations
                 cut_clip(raw_video, c_start, c_end, cut_file)
                 crop_vertical(cut_file, crop_file)
                 
                 # Subtitles
-                generate_srt(clip_words, srt_file)
+                generate_srt(offset_words, srt_file)
                 burn_subtitles(crop_file, srt_file, final_file)
                 
                 # Upload to Cloudinary
