@@ -34,6 +34,7 @@ router.post('/upload-signature', async (req, res) => {
     const project = await Project.create({
       userId: req.userId,
       title: req.body.title || 'Untitled Project',
+      clipDuration: req.body.clipDuration || 60,
       status: 'uploading',
     });
     res.json({ ...signature, projectId: project._id });

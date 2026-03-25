@@ -13,6 +13,7 @@ const projectSchema = new mongoose.Schema(
     },
     progress: { type: Number, default: 0 },
     duration: { type: Number },                 // seconds
+    clipDuration: { type: Number, default: 60 }, // desired clip length in seconds
     metadata: { type: mongoose.Schema.Types.Mixed },
   },
   { timestamps: true }

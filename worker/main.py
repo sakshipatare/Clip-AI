@@ -78,6 +78,7 @@ def process_project(project):
     """Run the complete AI pipeline on a single project."""
     project_id = project['_id']
     video_url = project.get('originalVideoUrl')
+    clip_duration = project.get('clipDuration', 60)
     
     if not video_url:
         print(f"⚠️ Project {project_id} has no video URL, failing.")
@@ -118,7 +119,7 @@ def process_project(project):
         
         # 4. Analyze with LLM to find clips
         projects_col.update_one({'_id': project_id}, {'$set': {'progress': 75}})
-        clip_segments = find_best_clips(full_text, clip_duration=60, num_clips=3)
+        clip_segments = find_best_clips(full_text, clip_duration=clip_duration, num_clips=3)
         
         if not clip_segments:
             print("⚠️ No clips found by LLM.")
@@ -168,20 +169,20 @@ def process_project(project):
                 if start_idx != -1:
                     c_start = words[start_idx]['start']
                 else:
-                    c_start = idx * 60.0
+                    c_start = idx * clip_duration
                     print(f"⚠️ Could not find exact start text, falling back to {c_start}s")
 
                 if end_idx != -1:
                     c_end = words[end_idx]['end']
                 else:
-                    c_end = c_start + 60.0
+                    c_end = c_start + clip_duration
                     print(f"⚠️ Could not find exact end text, falling back to {c_end}s")
 
                 # Final safety bounds
                 if c_start < 0: c_start = 0.0
-                if c_end - c_start > 65.0:
-                    print(f"📏 Clip too long ({c_end - c_start:.2f}s), truncating to 60s.")
-                    c_end = c_start + 60.0
+                if c_end - c_start > clip_duration + 10:
+                    print(f"📏 Clip too long ({c_end - c_start:.2f}s), truncating to {clip_duration}s.")
+                    c_end = c_start + clip_duration
                 if c_end <= c_start: c_end = c_start + 30.0 
                 
                 print(f"📍 Clip window determined: {c_start:.2f}s to {c_end:.2f}s")

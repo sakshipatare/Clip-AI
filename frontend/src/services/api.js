@@ -18,8 +18,8 @@ export const login = (data) => api.post('/auth/login', data);
 // ── Projects ────────────────────────────────────────────
 export const getProjects = () => api.get('/projects');
 export const getProject = (id) => api.get(`/projects/${id}`);
-export const getUploadSignature = (title) =>
-  api.post('/projects/upload-signature', { title });
+export const getUploadSignature = (title, clipDuration) =>
+  api.post('/projects/upload-signature', { title, clipDuration });
 export const markUploaded = (id, data) =>
   api.put(`/projects/${id}/uploaded`, data);
 export const deleteProject = (id) => api.delete(`/projects/${id}`);

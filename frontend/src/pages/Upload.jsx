@@ -9,8 +9,18 @@ export default function Upload() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+  const [clipDuration, setClipDuration] = useState(60);
   const fileRef = useRef();
   const navigate = useNavigate();
+
+  const DURATION_OPTIONS = [
+    { label: '30s', value: 30 },
+    { label: '1m', value: 60 },
+    { label: '1m 30s', value: 90 },
+    { label: '2m', value: 120 },
+    { label: '2m 30s', value: 150 },
+    { label: '3m', value: 180 },
+  ];
 
   const handleFile = (f) => {
     if (!f) return;
@@ -37,7 +47,7 @@ export default function Upload() {
 
     try {
       // 1. Get signed upload params from our API
-      const { data: sig } = await getUploadSignature(title);
+      const { data: sig } = await getUploadSignature(title, clipDuration);
 
       // 2. Upload directly to Cloudinary
       const formData = new FormData();
@@ -98,6 +108,26 @@ export default function Upload() {
           placeholder="My Podcast Episode"
           className="w-full px-4 py-2.5 rounded-lg bg-gray-800/80 border border-gray-700/60 text-white placeholder-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-all"
         />
+      </div>
+
+      {/* ── Clip Duration ────────────────────────────── */}
+      <div className="mb-8">
+        <label className="block text-sm text-gray-400 mb-3">Target Clip Duration</label>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {DURATION_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setClipDuration(opt.value)}
+              className={`py-2 rounded-lg text-sm font-medium border transition-all cursor-pointer ${
+                clipDuration === opt.value
+                  ? 'bg-purple-500/20 border-purple-500 text-purple-400'
+                  : 'bg-gray-800/40 border-gray-700/60 text-gray-500 hover:border-gray-600'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Drop Zone ────────────────────────────────── */}

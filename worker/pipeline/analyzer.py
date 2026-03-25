@@ -17,7 +17,7 @@ def find_best_clips(transcript_text: str, clip_duration: int = 60, num_clips: in
 
     CRITICAL REQUIREMENTS FOR A GOOD CLIP:
     1. Hook: Must start with a powerful hook.
-    2. Short Duration: Segment MUST be between 30 and 60 seconds. DO NOT pick segments longer than 75 seconds.
+    2. Duration: Each segment MUST be approximately {clip_duration} seconds. DO NOT pick segments significantly longer than {clip_duration + 15} seconds.
     3. Complete Thought: Must stand alone and make sense.
     4. Payoff: Must deliver a satisfying conclusion.
 
