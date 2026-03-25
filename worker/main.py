@@ -150,17 +150,23 @@ def process_project(project):
                 
                 # Helper: find best matching index for a phrase
                 def find_text_index(target_phrase, word_list, reverse=False):
-                    target_words = target_phrase.split()
+                    target_words = [w.lower().strip('.,!?') for w in target_phrase.split()]
                     if not target_words: return -1
                     
-                    search_range = range(len(word_list))
+                    # Search range
+                    search_range = range(len(word_list) - len(target_words) + 1)
                     if reverse: search_range = reversed(search_range)
                     
                     for i in search_range:
-                        # Check if first word matches
-                        if not word_list[i].get('word'): continue
-                        if word_list[i]['word'].lower().strip('.,!?') == target_words[0].lower().strip('.,!?'):
-                            return i
+                        match = True
+                        for j in range(len(target_words)):
+                            curr_word = word_list[i+j].get('word', '').lower().strip('.,!?')
+                            if curr_word != target_words[j]:
+                                match = False
+                                break
+                        if match:
+                            # If reverse, we likely want the end of the phrase for mapping end_text
+                            return i + len(target_words) - 1 if reverse else i
                     return -1
 
                 start_idx = find_text_index(target_start_text, words)
@@ -180,7 +186,25 @@ def process_project(project):
 
                 # Final safety bounds
                 if c_start < 0: c_start = 0.0
-                if c_end - c_start > clip_duration + 10:
+                
+                # --- Sentence-Completion Guard ---
+                # Ensure the clip ends at a sentence boundary (., !, ?)
+                # Scan forward up to 10 words to find the next punctuation
+                scan_limit = min(end_idx + 10, len(words))
+                found_boundary = False
+                for s_idx in range(end_idx, scan_limit):
+                    word_val = words[s_idx].get('word', '')
+                    if any(p in word_val for p in ('.', '!', '?')):
+                        c_end = words[s_idx]['end']
+                        end_idx = s_idx # update for clip_words filtering
+                        found_boundary = True
+                        print(f"🎯 Sentence-completion guard: Extended clip to sentence end at {c_end:.2f}s ('{word_val}')")
+                        break
+                
+                if not found_boundary:
+                    print(f"⚠️ Sentence-completion guard: No punctuation found within 10 words of end_text.")
+
+                if c_end - c_start > clip_duration + 15:
                     print(f"📏 Clip too long ({c_end - c_start:.2f}s), truncating to {clip_duration}s.")
                     c_end = c_start + clip_duration
                 if c_end <= c_start: c_end = c_start + 30.0 

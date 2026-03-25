@@ -19,7 +19,8 @@ def find_best_clips(transcript_text: str, clip_duration: int = 60, num_clips: in
     1. Hook: Must start with a powerful hook.
     2. Duration: Each segment MUST be approximately {clip_duration} seconds. DO NOT pick segments significantly longer than {clip_duration + 15} seconds.
     3. Complete Thought: Must stand alone and make sense.
-    4. Payoff: Must deliver a satisfying conclusion.
+    4. Sentence Boundary: end_text MUST be the end of a sentence and MUST include a punctuation mark (., !, or ?). Avoid cutting in the middle of a thought.
+    5. Payoff: Must deliver a satisfying conclusion.
 
     Return the result strictly as a JSON array of objects, with NO markdown formatting, NO backticks.
     Format exactly like this example:
