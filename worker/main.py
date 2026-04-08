@@ -150,7 +150,7 @@ def process_project(project):
                 c_start = -1.0
                 c_end = -1.0
                 
-                # Helper: find best matching index for a phrase
+                # Helper: find best matching index for a phrase with fuzzy fallback
                 def find_text_index(target_phrase, word_list, reverse=False):
                     target_words = [w.lower().strip('.,!?') for w in target_phrase.split()]
                     if not target_words: return -1
@@ -159,17 +159,26 @@ def process_project(project):
                     search_range = range(len(word_list) - len(target_words) + 1)
                     if reverse: search_range = reversed(search_range)
                     
+                    best_score = 0
+                    best_idx = -1
+                    
                     for i in search_range:
-                        match = True
+                        current_score = 0
                         for j in range(len(target_words)):
                             curr_word = word_list[i+j].get('word', '').lower().strip('.,!?')
-                            if curr_word != target_words[j]:
-                                match = False
-                                break
-                        if match:
-                            # If reverse, we likely want the end of the phrase for mapping end_text
+                            if curr_word == target_words[j]:
+                                current_score += 1
+                        
+                        # Exact match
+                        if current_score == len(target_words):
                             return i + len(target_words) - 1 if reverse else i
-                    return -1
+                            
+                        # Fuzzy match: At least 2 words or 70% of phrase must match
+                        if current_score > best_score and current_score >= max(2, len(target_words) * 0.7):
+                            best_score = current_score
+                            best_idx = i + len(target_words) - 1 if reverse else i
+                            
+                    return best_idx
 
                 start_idx = find_text_index(target_start_text, words)
                 end_idx = find_text_index(target_end_text, words, reverse=True)
@@ -192,6 +201,17 @@ def process_project(project):
                 # --- Sentence-Completion Guard ---
                 # Ensure the clip ends at a sentence boundary (., !, ?)
                 found_boundary = False
+                
+                # IMPORTANT FALLBACK: If end_idx is -1 (text matching failed), 
+                # use the fallback timing to find a nearby word index as our starting point for the guard.
+                if end_idx == -1:
+                    print(f"🔄 Text matching failed for end_text, finding nearest word to {c_end:.2f}s for guard...")
+                    for i, w in enumerate(words):
+                        if w['start'] >= c_end:
+                            end_idx = i
+                            break
+                    if end_idx == -1: end_idx = len(words) - 1
+
                 if end_idx != -1:
                     # Scan current, then forward (up to 15), then backward (up to 5) for punctuation
                     search_indices = [end_idx]
@@ -227,9 +247,6 @@ def process_project(project):
                 
                 if not found_boundary:
                     print(f"⚠️ Sentence-completion guard: No punctuation or capital signal found near end_text.")
-                    if end_idx != -1:
-                        nearby_words = [words[i].get('word', '') for i in range(max(0, end_idx-2), min(len(words), end_idx+5))]
-                        print(f"🔍 Debug Info: Nearby words around end_idx {end_idx}: {nearby_words}")
 
                 if c_end - c_start > clip_duration + 15:
                     print(f"📏 Clip too long ({c_end - c_start:.2f}s), truncating to {clip_duration}s.")
